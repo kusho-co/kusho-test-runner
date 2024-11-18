@@ -1,0 +1,42 @@
+name: 'KushoAI Test Runner'
+description: 'Runs KushoAI test suites using Docker'
+author: 'KushoAI'
+
+inputs:
+  test-suite-uuid:
+    description: 'Test Suite UUID'
+    required: true
+  environment-id:
+    description: 'Environment ID'
+    required: true
+  api-key:
+    description: 'KushoAI API Key'
+    required: true
+  email:
+    description: 'Comma separated email addresses'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v1
+      
+    - name: Pull KushoAI Docker Image
+      shell: bash
+      run: docker pull public.ecr.aws/y5g4u6y7/kusho-jenkins-runner:latest
+
+    - name: Run KushoAI Test Suite
+      shell: bash
+      env:
+        TEST_SUITE_UUID: ${{ inputs.test-suite-uuid }}
+        ENVIRONMENT_ID: ${{ inputs.environment-id }}
+        API_KEY: ${{ inputs.api-key }}
+        EMAIL: ${{ inputs.email }}
+      run: |
+        docker run --rm \
+          -e TEST_SUITE_UUID="${TEST_SUITE_UUID}" \
+          -e ENVIRONMENT_ID="${ENVIRONMENT_ID}" \
+          -e API_KEY="${API_KEY}" \
+          -e EMAIL="${EMAIL}" \
+          public.ecr.aws/y5g4u6y7/kusho-jenkins-runner:latest
