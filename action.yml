@@ -24,7 +24,7 @@ runs:
       
     - name: Pull KushoAI Docker Image
       shell: bash
-      run: docker pull public.ecr.aws/y5g4u6y7/kusho-jenkins-runner:latest
+      run: docker pull public.ecr.aws/y5g4u6y7/kusho-test-runner:latest
 
     - name: Run KushoAI Test Suite
       shell: bash
