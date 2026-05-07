@@ -1,46 +1,91 @@
 name: 'KushoAI Test Runner'
-description: 'Runs KushoAI test suites using Docker'
+description: 'Run KushoAI API and E2E test suites from GitHub Actions'
 author: 'KushoAI'
 
 inputs:
-  test-suite-uuid:
-    description: 'Test Suite UUID'
+  api-key:
+    description: 'KushoAI API key. Store this in GitHub Secrets.'
     required: true
   environment-id:
-    description: 'Environment ID'
+    description: 'KushoAI environment ID to run against.'
     required: true
-  api-key:
-    description: 'KushoAI API Key'
-    required: true
-  email:
-    description: 'Comma separated email addresses'
-    required: true
+  base-url:
+    description: 'KushoAI API base URL.'
+    required: false
+    default: 'https://be.kusho.ai'
+  test-suite-uuid:
+    description: 'Comma-separated KushoAI API test suite UUIDs to execute.'
+    required: false
+  group-id:
+    description: 'KushoAI group ID to execute.'
+    required: false
+  tags:
+    description: 'Comma-separated API test tags to execute.'
+    required: false
+  e2e-test-suite-uuid:
+    description: 'KushoAI E2E test suite UUID to execute.'
+    required: false
+  execution-profile-uuid:
+    description: 'KushoAI E2E execution profile UUID.'
+    required: false
+  e2e-test-suite-tags:
+    description: 'Comma-separated E2E test suite tags to execute.'
+    required: false
+  e2e-profile-tags:
+    description: 'Comma-separated E2E execution profile tags.'
+    required: false
+  ci-commit-sha:
+    description: 'Commit SHA to associate with the KushoAI run.'
+    required: false
+  ci-commit-message:
+    description: 'Commit message to associate with the KushoAI run.'
+    required: false
 
 runs:
   using: 'composite'
   steps:
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v1
-      
-    - name: Pull KushoAI Docker Image
-      shell: bash
-      run: docker pull public.ecr.aws/y5g4u6y7/kusho-test-runner:latest
-
-    - name: Run KushoAI Test Suite
+    - name: Run KushoAI tests
       shell: bash
       env:
-        TEST_SUITE_UUID: ${{ inputs.test-suite-uuid }}
+        BASE_URL: ${{ inputs.base-url }}
         ENVIRONMENT_ID: ${{ inputs.environment-id }}
         API_KEY: ${{ inputs.api-key }}
-        EMAIL: ${{ inputs.email }}
+        CI_COMMIT_SHA: ${{ inputs.ci-commit-sha || github.sha }}
+        CI_COMMIT_MESSAGE: ${{ inputs.ci-commit-message || github.event.head_commit.message || github.event.pull_request.title || github.workflow }}
+        TEST_SUITE_UUID: ${{ inputs.test-suite-uuid }}
+        GROUP_ID: ${{ inputs.group-id }}
+        TAGS: ${{ inputs.tags }}
+        E2E_TEST_SUITE_UUID: ${{ inputs.e2e-test-suite-uuid }}
+        EXECUTION_PROFILE_UUID: ${{ inputs.execution-profile-uuid }}
+        E2E_TEST_SUITE_TAGS: ${{ inputs.e2e-test-suite-tags }}
+        E2E_PROFILE_TAGS: ${{ inputs.e2e-profile-tags }}
       run: |
-        docker run --rm \
-          -e TEST_SUITE_UUID="${TEST_SUITE_UUID}" \
-          -e ENVIRONMENT_ID="${ENVIRONMENT_ID}" \
-          -e API_KEY="${API_KEY}" \
-          -e EMAIL="${EMAIL}" \
-          public.ecr.aws/y5g4u6y7/kusho-jenkins-runner:latest
-          
+        set -euo pipefail
+
+        if [[ -z "${TEST_SUITE_UUID}" && -z "${GROUP_ID}" && -z "${TAGS}" && -z "${E2E_TEST_SUITE_UUID}" && -z "${E2E_TEST_SUITE_TAGS}" ]]; then
+          echo "::error::Provide one of: test-suite-uuid, group-id, tags, e2e-test-suite-uuid, or e2e-test-suite-tags."
+          exit 1
+        fi
+
+        docker_args=(
+          --rm
+          -e "BASE_URL=${BASE_URL}"
+          -e "ENVIRONMENT_ID=${ENVIRONMENT_ID}"
+          -e "API_KEY=${API_KEY}"
+          -e "CI_COMMIT_SHA=${CI_COMMIT_SHA}"
+          -e "CI_COMMIT_MESSAGE=${CI_COMMIT_MESSAGE}"
+        )
+
+        [[ -n "${TEST_SUITE_UUID}" ]] && docker_args+=(-e "TEST_SUITE_UUID=${TEST_SUITE_UUID}")
+        [[ -n "${GROUP_ID}" ]] && docker_args+=(-e "GROUP_ID=${GROUP_ID}")
+        [[ -n "${TAGS}" ]] && docker_args+=(-e "TAGS=${TAGS}")
+        [[ -n "${E2E_TEST_SUITE_UUID}" ]] && docker_args+=(-e "E2E_TEST_SUITE_UUID=${E2E_TEST_SUITE_UUID}")
+        [[ -n "${EXECUTION_PROFILE_UUID}" ]] && docker_args+=(-e "EXECUTION_PROFILE_UUID=${EXECUTION_PROFILE_UUID}")
+        [[ -n "${E2E_TEST_SUITE_TAGS}" ]] && docker_args+=(-e "E2E_TEST_SUITE_TAGS=${E2E_TEST_SUITE_TAGS}")
+        [[ -n "${E2E_PROFILE_TAGS}" ]] && docker_args+=(-e "E2E_PROFILE_TAGS=${E2E_PROFILE_TAGS}")
+
+        docker run "${docker_args[@]}" public.ecr.aws/y5g4u6y7/kusho-test-runner:latest
+
 branding:
-  icon: 'award'
+  icon: 'code'
   color: 'green'
